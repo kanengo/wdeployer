@@ -1,0 +1,16 @@
+[serviceweaver]
+binary = "./test"
+logLevel = "info"
+
+
+[single]
+listeners.hello = {address = "localhost:12345"}
+
+[multi]
+listeners.hello = {address = "localhost:12345"}
+
+[gke]
+regions = ["us-west1"]
+listeners.hello = {is_public = true, hostname = "hello.example.com"}
+
+[standalone]
