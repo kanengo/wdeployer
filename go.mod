@@ -6,7 +6,6 @@ replace github.com/ServiceWeaver/weaver => /home/leeka/codes/github/weaver
 
 require (
 	github.com/ServiceWeaver/weaver v0.24.3
-	github.com/docker/distribution v2.8.3+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/google/uuid v1.6.0
 	go.opentelemetry.io/otel v1.28.0
@@ -27,13 +26,11 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/cel-go v0.17.1 // indirect
 	github.com/google/pprof v0.0.0-20230705174524-200ffdc848b8 // indirect
-	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/lightstep/varopt v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.53.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.16.0 // indirect

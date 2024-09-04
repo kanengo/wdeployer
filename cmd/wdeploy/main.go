@@ -1,10 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
-	"github.com/docker/distribution/context"
-	"github.com/kanengo/wdeployer/standalone"
+	"github.com/kanengo/wdeployer/mono"
+
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -28,9 +29,8 @@ func main() {
 		os.Exit(1)
 	}
 	switch flag.Arg(0) {
-	case "standalone":
-		deployCmd := standalone.Commands["deploy"]
-		if err := deployCmd.Fn(context.Background(), flag.Args()[1:]); err != nil {
+	case "mono":
+		if err := mono.Deploy(context.Background(), flag.Args()[1:]); err != nil {
 			_, _ = fmt.Fprint(os.Stderr, err)
 			os.Exit(1)
 		}
