@@ -59,12 +59,12 @@ func Deploy(ctx context.Context, args []string) error {
 		}
 		return fmt.Errorf(`
 ERROR: The binary you're trying to deploy (%q) was built with
-github.com/ServiceWeaver/weaver module version %s. However, the 'wdeploy
+github.com/ServiceWeaver/weaver module version %s. However, the 'wdp
 standalone' binary you're using was built with weaver module version %s.
 These versions are incompatible.
 
 We recommend updating both the weaver module your application is built with and
-updating the 'wdeploy standalone' command by running the following.
+updating the 'wdp standalone' command by running the following.
 
     go get github.com/ServiceWeaver/weaver@latest
     go install github.com/ServiceWeaver/weaver/cmd/weaver@latest
@@ -107,7 +107,7 @@ func deploy(ctx context.Context, app *protos.AppConfig) error {
 
 	h := &handler{
 		e:       e,
-		printer: logging2.NewPrettyPrinter(),
+		printer: logging2.NewPrettyPrinter(os.Stdout),
 	}
 	running.Go(func() error {
 		err := e.Serve(h)

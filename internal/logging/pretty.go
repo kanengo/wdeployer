@@ -3,6 +3,7 @@ package logging
 import (
 	"fmt"
 	"github.com/ServiceWeaver/weaver/runtime/protos"
+	"io"
 	"log/slog"
 	"path/filepath"
 	"strings"
@@ -15,11 +16,27 @@ type PrettyFormatter interface {
 	Format(*protos.LogEntry) string
 }
 
+type prettyState struct {
+	printer *PrettyPrinter
+	buf     *Buffer
+	sep     string
+}
+
+func (s *prettyState) free() {
+	s.buf.Free()
+}
+
 // PrettyPrinter pretty prints log entries to json string.
 type PrettyPrinter struct {
 	mu  sync.Mutex
 	b   strings.Builder
 	sep string //写入下一个key前的分隔符
+
+	w io.Writer
+}
+
+func NewPrettyPrinter(w io.Writer) *PrettyPrinter {
+	return &PrettyPrinter{w: w}
 }
 
 const SystemAttributeKey = "serviceweaver/system"
@@ -34,81 +51,89 @@ func IsSystemGenerated(entry *protos.LogEntry) bool {
 	return false
 }
 
-func NewPrettyPrinter() *PrettyPrinter {
-	return &PrettyPrinter{}
-}
-
 const (
 	componentKey = "component"
 	nodeKey      = "node"
 )
 
-func (p *PrettyPrinter) Format(entry *protos.LogEntry) string {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.b.Reset()
-	p.sep = ""
+func (p *PrettyPrinter) newState(buf *Buffer, sep string) prettyState {
+	return prettyState{
+		printer: p,
+		buf:     buf,
+		sep:     sep,
+	}
+}
 
-	p.b.WriteByte('{')
+func (p *PrettyPrinter) Format(entry *protos.LogEntry) error {
+	//p.mu.Lock()
+	//defer p.mu.Unlock()
+	//p.b.Reset()
+	//p.sep = ""
+	state := p.newState(NewBuffer(), "")
+	defer state.free()
+
+	_ = state.buf.WriteByte('{')
 
 	// level
-	p.appendKey(slog.LevelKey)
-	p.appendString(entry.Level)
+	state.appendKey(slog.LevelKey)
+	state.appendString(entry.Level)
 
 	// time
 	if entry.TimeMicros != 0 {
 		t := time.UnixMicro(entry.TimeMicros)
-		p.appendKey(slog.TimeKey)
-		p.appendTime(t)
+		state.appendKey(slog.TimeKey)
+		state.appendTime(t)
 	}
 
 	// component
 	c := ShortenComponent(entry.Component)
-	p.appendKey(componentKey)
-	p.appendString(c)
+	state.appendKey(componentKey)
+	state.appendString(c)
 
 	// node
-	p.appendKey(nodeKey)
-	p.appendString(Shorten(entry.Node))
+	state.appendKey(nodeKey)
+	state.appendString(Shorten(entry.Node))
 
 	// file and line
 	if entry.File != "" && entry.Line != -1 {
 		file := filepath.Base(entry.File)
-		s := fmt.Sprintf("%s:%d", file, entry.Line)
-		p.appendKey(slog.SourceKey)
-		p.appendString(s)
+		source := fmt.Sprintf("%s:%d", file, entry.Line)
+		state.appendKey(slog.SourceKey)
+		state.appendString(source)
 	}
 
 	// msg
-	p.appendKey(slog.MessageKey)
-	p.appendString(entry.Msg)
+	state.appendKey(slog.MessageKey)
+	state.appendString(entry.Msg)
 
 	// attrs
 	for i := 0; i < len(entry.Attrs); i += 2 {
-		p.appendKey(entry.Attrs[i])
-		p.appendString(entry.Attrs[i+1])
+		state.appendKey(entry.Attrs[i])
+		state.appendString(entry.Attrs[i+1])
 	}
 
-	p.b.WriteByte('}')
+	_ = state.buf.WriteByte('}')
+	_ = state.buf.WriteByte('\n')
 
-	return p.b.String()
+	_, err := p.w.Write(*state.buf)
+
+	return err
 }
 
-func (p *PrettyPrinter) appendKey(key string) {
-	p.b.WriteString(p.sep)
-	p.appendString(key)
-	p.b.WriteByte(':')
-	p.sep = ","
+func (s *prettyState) appendKey(key string) {
+	_, _ = s.buf.WriteString(s.sep)
+	s.appendString(key)
+	_ = s.buf.WriteByte(':')
+	s.sep = ","
+}
+func (s *prettyState) appendString(str string) {
+	_ = s.buf.WriteByte('"')
+	*s.buf = appendEscapedJSONString(*s.buf, str)
+	_ = s.buf.WriteByte('"')
 }
 
-func (p *PrettyPrinter) appendString(str string) {
-	p.b.WriteByte('"')
-	appendEscapedJSONString(&p.b, str)
-	p.b.WriteByte('"')
-}
-
-func (p *PrettyPrinter) appendTime(t time.Time) {
-	p.appendString(t.Format("2006-01-02 15:04:05.000000"))
+func (s *prettyState) appendTime(t time.Time) {
+	s.appendString(t.Format("2006-01-02 15:04:05.000000"))
 }
 
 // Shorten 返回一个s的短前缀
@@ -133,9 +158,9 @@ func ShortenComponent(component string) string {
 	}
 }
 
-func appendEscapedJSONString(sb *strings.Builder, s string) {
-	char := func(b byte) { sb.WriteByte(b) }
-	str := func(s string) { sb.WriteString(s) }
+func appendEscapedJSONString(buf []byte, s string) []byte {
+	char := func(b byte) { buf = append(buf, b) }
+	str := func(s string) { buf = append(buf, s...) }
 
 	start := 0
 	for i := 0; i < len(s); {
@@ -199,7 +224,7 @@ func appendEscapedJSONString(sb *strings.Builder, s string) {
 	if start < len(s) {
 		str(s[start:])
 	}
-	return
+	return buf
 }
 
 const hex = "0123456789abcdef"
